@@ -8,8 +8,7 @@ import torch
 import torch.distributed as dist
 import torch.nn as nn
 
-from .base_exp import BaseExp
-from yolox.exp.yolox_base import Exp
+from yolox.exp import Exp as BaseExp
 
 from yolox.data import get_yolox_datadir
 
@@ -23,6 +22,10 @@ class Exp(BaseExp):
         # ---------------- model config ---------------- #
         # detect classes number of model
         self.num_classes = 17
+        # factor of model depth
+        self.depth = 1.33
+        # factor of model width
+        self.width = 1.25
         
         # ---------------- dataloader config ---------------- #
         # set worker to 4 for shorter dataloader init time
@@ -63,9 +66,9 @@ class Exp(BaseExp):
                 "ram" : Caching imgs to ram for fast training.
                 "disk": Caching imgs to disk for fast training.
         """
-        from yolox.data import FlowersDection, TrainTransform
+        from yolox.data import FlowersDetection, TrainTransform
 
-        return FlowersDection(
+        return FlowersDetection(
             data_dir=self.data_dir,
             img_size=self.input_size,
             preproc=TrainTransform(
@@ -78,10 +81,10 @@ class Exp(BaseExp):
         )
 
     def get_eval_dataset(self, **kwargs):
-        from yolox.data import FlowersDection, ValTransform
+        from yolox.data import FlowersDetection, ValTransform
         legacy = kwargs.get("legacy", False)
 
-        return FlowersDection(
+        return FlowersDetection(
             data_dir=self.data_dir,
             split="validation",
             img_size=self.test_size,
