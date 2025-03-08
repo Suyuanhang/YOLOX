@@ -8,3 +8,4 @@ from .datasets_wrapper import CacheDataset, ConcatDataset, Dataset, MixConcatDat
 from .mosaicdetection import MosaicDetection
 from .voc import VOCDetection
 from .flowers import FlowersDetection
+from .flowers import FLOWERS17_CLASSES

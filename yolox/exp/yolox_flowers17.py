@@ -37,15 +37,15 @@ class Exp(BaseExp):
 
         # --------------  training config --------------------- #
         # epoch number used for warmup
-        self.warmup_epochs = 3
+        self.warmup_epochs = 5
         # max training epoch
-        self.max_epoch = 10
+        self.max_epoch = 300
         # last #epoch to close augmention like mosaic
-        self.no_aug_epochs = 10
+        self.no_aug_epochs = 15
 
         # log period in iter, for example,
         # if set to 1, user could see log every iteration.
-        self.print_interval = 10
+        self.print_interval = 50
         # eval period in epoch, for example,
         # if set to 1, model will be evaluate after every epoch.
         self.eval_interval = 1
