@@ -215,7 +215,7 @@ class CacheDataset(Dataset, metaclass=ABCMeta):
                     f"there is no guarantee that the remaining memory space is sufficient"
                 )
 
-        if self.cache and self.imgs is None:
+        if self.cache and (getattr(self, "imgs", None) is None or self.imgs is None):
             if self.cache_type == 'ram':
                 self.imgs = [None] * num_imgs
                 logger.info("You are using cached images in RAM to accelerate training!")
