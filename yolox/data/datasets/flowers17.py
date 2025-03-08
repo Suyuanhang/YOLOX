@@ -45,9 +45,14 @@ class FlowersDection(CacheDataset):
         self,
         data_dir,
         data_split_file="datasplits.mat",
+        split = "train",
         img_size=(416, 416),
         preproc=None,
-        target_transform=AnnotationTransform(),
+        target_transform=AnnotationTransform(
+            class_to_ind=dict(
+                zip(FLOWERS17_CLASSES, range(len(FLOWERS17_CLASSES)))
+            )
+        ),
         dataset_name="Flowers17",
         cache=False,
         cache_type="ram",
@@ -83,7 +88,7 @@ class FlowersDection(CacheDataset):
         else:
             raise ValueError(f"{data_split_file} is not found.")
         
-        self.ids = self.data_splits["train"]
+        self.ids = self.data_splits[split]
         self.num_imgs = len(self.ids)
         self.annotations = self._load_coco_annotations()
 
