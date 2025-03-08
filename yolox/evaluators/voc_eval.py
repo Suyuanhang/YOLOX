@@ -81,9 +81,14 @@ def voc_eval(
         os.mkdir(cachedir)
     cachefile = os.path.join(cachedir, "annots.pkl")
     # read list of images
-    with open(imagesetfile, "r") as f:
-        lines = f.readlines()
-    imagenames = [x.strip() for x in lines]
+    if isinstance(imagesetfile, str):
+        with open(imagesetfile, "r") as f:
+            lines = f.readlines()
+        imagenames = [x.strip() for x in lines]
+    elif isinstance(imagesetfile, list):
+        imagenames = imagesetfile
+    else:
+        raise ValueError(f"imagesetfile should either be a file containing validation image names or a list of image names. Got {type(imagesetfile)}")
 
     if not os.path.isfile(cachefile):
         # load annots

@@ -7,6 +7,7 @@
 # Copyright (c) Megvii, Inc. and its affiliates.
 
 import os
+import glob
 import os.path
 import pickle
 import xml.etree.ElementTree as ET
@@ -18,10 +19,10 @@ from yolox.evaluators.voc_eval import voc_eval
 
 from .datasets_wrapper import CacheDataset, cache_read_img
 from yolox.data.datasets.flowers17_classes import FLOWERS17_CLASSES
-from yolox.data.datasets.voc import VOCDetection, AnnotationTransform
+from yolox.data.datasets.voc import AnnotationTransform
 
 
-class FlowersDection(VOCDetection):
+class FlowersDection(CacheDataset):
 
     """
     Flowers17 Detection Dataset Object
@@ -43,6 +44,7 @@ class FlowersDection(VOCDetection):
     def __init__(
         self,
         data_dir,
+        data_split_file="datasplits.mat",
         img_size=(416, 416),
         preproc=None,
         target_transform=AnnotationTransform(),
@@ -50,17 +52,11 @@ class FlowersDection(VOCDetection):
         cache=False,
         cache_type="ram",
     ):
-        super().__init__(
-            data_dir,
-            image_sets=image_sets,
-            img_size=img_size,
-            preproc=preproc,
-            target_transform=target_transform,
-            dataset_name=dataset_name,
-            cache=cache,
-            cache_type=cache_type,
-        )
-
+        self.root = data_dir
+        self.img_size = img_size
+        self.preproc = preproc
+        self.target_transform = target_transform
+        self.name = dataset_name
         self._annopath = os.path.join(self.root, "%s.xml")
         self._imgpath = os.path.join(self.root, "%s.jpg")
         self._classes = FLOWERS17_CLASSES
@@ -68,11 +64,26 @@ class FlowersDection(VOCDetection):
             {"id": idx, "name": val} for idx, val in enumerate(FLOWERS17_CLASSES)
         ]
         self.class_ids = list(range(len(FLOWERS17_CLASSES)))
-        self.ids = list()
-        for f in os.listdir(self.root):
-            if f.endswith(".xml"):
-                index = f.rstrip(".xml").split("_", 1)[1]
-                self.ids.append(index)
+        self.data_splits {"train": [], "validation": [], "test": []}
+        data_split_file_full_path = os.path.join(self.root, data_split_file)
+        all_annotated_basenames = [os.path.basename(f)[:-4] for f in glob.glob(os.path.join(self.root, "*.xml"))]
+        if os.path.exists(data_split_file_full_path):
+            import scipy.io
+            index_num_of_digits = len(all_annotated_basenames.split('_', 1)[1])
+            splits = scipy.io.loadmat(data_split_file_full_path)
+            # use both train and val for training
+            self.data_splits["train"].extend(splits['trn1'].tolist()[0])
+            self.data_splits["train"].extend(splits['val1'].tolist()[0])
+            self.data_splits["train"] = ['image_'+str(ind).zfill(index_num_of_digits) for ind in self.data_splits["train"]]
+            self.data_splits["train"] = list(set(all_annotated_basenames) & set(self.data_splits["train"]))
+            # use test set for validation
+            self.data_splits["validation"].extend(splits['tst1'].tolist()[0])
+            self.data_splits["validation"] = ['image_'+str(ind).zfill(index_num_of_digits) for ind in self.data_splits["validation"]]
+            self.data_splits["validation"] = list(set(all_annotated_basenames) & set(self.data_splits["validation"]))
+        else:
+            raise ValueError(f"{data_split_file} is not found.")
+        
+        self.ids = self.data_splits["train"]
         self.num_imgs = len(self.ids)
         self.annotations = self._load_coco_annotations()
 
@@ -80,6 +91,16 @@ class FlowersDection(VOCDetection):
             (self._imgpath % self.ids[i]).split(self.root + "/")[1]
             for i in range(self.num_imgs)
         ]
+
+        super().__init__(
+            input_dimension=img_size,
+            num_imgs=self.num_imgs,
+            data_dir=self.root,
+            cache_dir_name=f"cache_{self.name}",
+            path_filename=path_filename,
+            cache=cache,
+            cache_type=cache_type
+        )
 
 
     def __len__(self):
@@ -186,14 +207,12 @@ class FlowersDection(VOCDetection):
 
     def _write_flowers_results_file(self, all_boxes):
         for cls_ind, cls in enumerate(FLOWERS17_CLASSES):
-            cls_ind = cls_ind
             if cls == "__background__":
                 continue
             print("Writing {} FLOWERS17 results file".format(cls))
             filename = self._get_flowers_results_file_template().format(cls)
             with open(filename, "wt") as f:
                 for im_ind, index in enumerate(self.ids):
-                    index = index[1]
                     dets = all_boxes[cls_ind][im_ind]
                     if dets == []:
                         continue
@@ -211,17 +230,15 @@ class FlowersDection(VOCDetection):
 
     def _do_python_eval(self, output_dir="output", iou=0.5):
         rootpath = self.root
-        name = self.image_set[0][1]
         annopath = os.path.join(rootpath, "{:s}.xml")
-        imagesetfile = os.path.join(rootpath, "ImageSets", "Main", name + ".txt")
         cachedir = os.path.join(
-            self.root, "annotations_cache", "VOC" + self._year, name
+            self.root, "annotations_cache", "Flowers17"
         )
         if not os.path.exists(cachedir):
             os.makedirs(cachedir)
         aps = []
         # The PASCAL VOC metric changed in 2010
-        use_07_metric = True if int(self._year) < 2010 else False
+        use_07_metric = False
         print("Eval IoU : {:.2f}".format(iou))
         if output_dir is not None and not os.path.isdir(output_dir):
             os.mkdir(output_dir)
@@ -231,10 +248,10 @@ class FlowersDection(VOCDetection):
                 continue
 
             filename = self._get_flowers_results_file_template().format(cls)
-            rec, prec, ap = flowers_eval(
+            rec, prec, ap = voc_eval(
                 filename,
                 annopath,
-                imagesetfile,
+                self.data_splits["validation"],
                 cls,
                 cachedir,
                 ovthresh=iou,
