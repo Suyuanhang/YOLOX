@@ -39,7 +39,7 @@ class Exp(BaseExp):
         # epoch number used for warmup
         self.warmup_epochs = 5
         # max training epoch
-        self.max_epoch = 300
+        self.max_epoch = 200
         # last #epoch to close augmention like mosaic
         self.no_aug_epochs = 15
 
